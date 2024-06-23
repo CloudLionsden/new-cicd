@@ -1,38 +1,53 @@
-name: Terraform
+name: Terraform Deploy
 
 on:
-  pull_request:
+  push:
     branches:
       - main
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-
+    environment: aws
+    
     steps:
-    - name: Checkout code
+    - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Set up Terraform
-      uses: hashicorp/setup-terraform@v2 # Updated to v2 to ensure compatibility with Node.js 20
-      with:
-        terraform_version: 1.0.11
-
-    - name: Terraform Format Check
-      run: terraform fmt -check
-
-    - name: Terraform Init
-      run: terraform init
-
-    - name: Terraform Validate
-      run: terraform validate
-
-    - name: Terraform Plan
-      run: terraform plan
-
-    - name: Install tflint
+    - name: Set AWS credentials
       run: |
-        curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+        echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+        echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
+        echo "AWS_DEFAULT_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+        export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+        export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        export AWS_DEFAULT_REGION=${{ secrets.AWS_REGION }}
+        
+    # - name: Install AWS CLI
+    #   run: |
+    #     sudo apt-get update
+    #     sudo apt-get install -y awscli
 
-    - name: Run tflint
-      run: tflint
+    # - name: Configure AWS CLI
+    #   run: aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID && aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY && aws configure set default.region $AWS_REGION
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v1
+      with:
+        terraform_version: 1.0.0
+
+    - name: Initialize Terraform
+      run: terraform init
+      # env:
+      #   AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #   AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Plan Terraform changes
+      run: terraform plan -out=tfplan
+
+    # Add a prompt to ask the user whether to apply or destroy changes
+    - name: Apply Terraform changes
+      run: terraform apply --auto-approve
+
+    - name: Clean up
+      run: rm tfplan
